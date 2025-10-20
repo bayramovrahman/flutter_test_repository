@@ -263,9 +263,19 @@ class _AfterTakePhotoStepState extends State<AfterTakePhotoStep> {
         );
 
         if (compressedPhoto != null) {
+          try {
+            if (await photoFile.exists()) {
+              await photoFile.delete();
+              debugPrint("Original photo deleted: ${photoFile.path}");
+            }
+          } catch (e) {
+            debugPrint("Error deleting original photo: $e");
+          }
+
           // int compressedSize = await compressedPhoto.length();
           // debugPrint("Compressed Photo Size: ${compressedSize / 1024} KB");
           // final String base64String = await PhotoUtils.getBase64FromFile(compressedPhoto);
+
           setState(() {
             final newImage = MerchandiserImage(
               merchandiserImageId: 0,
@@ -282,14 +292,24 @@ class _AfterTakePhotoStepState extends State<AfterTakePhotoStep> {
               merchandiserImages: updatedMerchandiserImages,
             );
           });
+        } else {
+          try {
+            if (await photoFile.exists()) {
+              await photoFile.delete();
+              debugPrint("Original photo deleted after compression failure");
+            }
+          } catch (e) {
+            debugPrint("Error deleting original photo: $e");
+          }
         }
       }
     } catch (e) {
       ProgramError programError = ProgramError(
-          empId: user.empId,
-          fromWhere: "Taking 'after' foto",
-          happenedAt: DateTime.now().toIso8601String(),
-          errorText: "$e");
+        empId: user.empId,
+        fromWhere: "Taking 'after' foto",
+        happenedAt: DateTime.now().toIso8601String(),
+        errorText: "$e",
+      );
 
       ProgramError.sendOrSaveError(programError);
       debugPrint('Error after taking photo: $e');
@@ -336,9 +356,21 @@ class _AfterTakePhotoStepState extends State<AfterTakePhotoStep> {
     }
   } */
 
-  void _onRemoveImage(int index) {
+  void _onRemoveImage(int index) async {
+    final removedImage = uploadedFiles[index];
+
+    try {
+      final file = File(removedImage.imagePath!);
+      if (await file.exists()) {
+        await file.delete();
+        debugPrint("Photo deleted from storage: ${removedImage.imagePath}");
+      }
+    } catch (e) {
+      debugPrint("Error deleting photo file: $e");
+    }
+
     setState(() {
-      final removedImage = uploadedFiles.removeAt(index);
+      uploadedFiles.removeAt(index);
       afterMerchandising = afterMerchandising.copyWith(
         merchandiserImages: afterMerchandising.merchandiserImages
             ?.where((img) => img.imagePath != removedImage.imagePath)

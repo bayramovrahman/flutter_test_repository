@@ -25,7 +25,7 @@ class PhotoUtils {
           await FlutterImageCompress.compressAndGetFile(
         file.absolute.path,
         targetPath,
-        quality: 80,
+        quality: 40,
       );
 
       return compressedXFile != null ? File(compressedXFile.path) : null;
