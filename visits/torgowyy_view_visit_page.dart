@@ -3,24 +3,25 @@ import 'package:dio/dio.dart';
 import 'package:iconly/iconly.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shaylan_agent/models/visit.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shaylan_agent/app/app_fonts.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:shaylan_agent/database/functions/visit.dart';
-import 'package:shaylan_agent/l10n/app_localizations.dart';
-import 'package:shaylan_agent/database/functions/customer.dart';
-import 'package:shaylan_agent/methods/gridview.dart';
 import 'package:shaylan_agent/models/customer.dart';
+import 'package:shaylan_agent/methods/gridview.dart';
 import 'package:shaylan_agent/models/merchandising.dart';
 import 'package:shaylan_agent/models/orderforserver.dart';
-import 'package:shaylan_agent/models/visit.dart';
+import 'package:shaylan_agent/utilities/alert_utils.dart';
+import 'package:shaylan_agent/l10n/app_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shaylan_agent/services/local_database.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:shaylan_agent/database/functions/visit.dart';
+import 'package:shaylan_agent/database/functions/customer.dart';
+import 'package:shaylan_agent/screens/full_screen_image_view.dart';
 import 'package:shaylan_agent/pages/items_list_page/items_list_view.dart';
 import 'package:shaylan_agent/pages/trader_visits/bloc/trader_visit_bloc.dart';
 import 'package:shaylan_agent/pages/trader_visits/bloc/trader_visit_event.dart';
 import 'package:shaylan_agent/pages/trader_visits/bloc/trader_visit_state.dart';
-import 'package:shaylan_agent/screens/full_screen_image_view.dart';
-import 'package:shaylan_agent/services/local_database.dart';
 
 class TorgowyyViewVisitPage extends StatefulWidget {
   final VisitModel visit;
@@ -32,6 +33,8 @@ class TorgowyyViewVisitPage extends StatefulWidget {
 }
 
 class _TorgowyyViewVisitPageState extends State<TorgowyyViewVisitPage> {
+  // Just empty column
+  
   OrderForServer? order;
   Merchandising? merchandising;
   String? imagePath;
@@ -88,88 +91,16 @@ class _TorgowyyViewVisitPageState extends State<TorgowyyViewVisitPage> {
     }
   }
 
-  Future<void> _sendPhotos() async {
-    if (merchandising == null || merchandising!.merchandiserImages == null || merchandising!.merchandiserImages!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No photos to send')),
-      );
-      return;
-    }
-
-    setState(() {
-      isSendingPhotos = true;
-    });
-
-    try {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      String? token = prefs.getString('authToken');
-
-      if (token == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Authentication token not found')),
-        );
-        setState(() {
-          isSendingPhotos = false;
-        });
-        return;
-      }
-
-      final data = [];
-      for (MerchandiserImage image in merchandising!.merchandiserImages!) {
-        File imageFile = File(image.imagePath!);
-        if (!imageFile.existsSync()) {
-          debugPrint("File not found: ${image.imagePath}");
-          continue;
-        }
-
-        MultipartFile multipartImage = await MultipartFile.fromFile(
-          imageFile.path,
-          filename: image.imageName ?? 'image.jpg',
-        );
-
-        final jsonImage = {
-          "MerchandiserImageId": image.merchandiserImageId ?? 0,
-          "ImagePath": image.imagePath,
-          "ImageName": image.imageName,
-          "BeforeAfter": image.beforeAfter ?? "before",
-          "Merchandiser": null,
-          "EncodedImage": multipartImage,
-        };
-        data.add(jsonImage);
-      }
-
-      if (data.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('No valid images found')),
-        );
-        setState(() {
-          isSendingPhotos = false;
-        });
-        return;
-      }
-
-      // Trigger the upload event
-      context.read<TraderVisitBloc>().add(
-        UploadMerchImages(
-          images: data,
-          token: token,
-          visit: widget.visit,
-        ),
-      );
-    } catch (e) {
-      debugPrint('Error preparing photos for upload: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error preparing photos: $e')),
-      );
-      setState(() {
-        isSendingPhotos = false;
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     var lang = AppLocalizations.of(context)!;
+    // final Map<int, String> paymentOptions = {
+    //   -1: lang.cashPayment,
+    //   5: lang.enumeration,
+    //   1: lang.sevenCredit,
+    //   2: lang.fourteenCredit,
+    //   3: lang.thirtyCredit,
+    // };
 
     return BlocListener<TraderVisitBloc, TraderVisitState>(
       listener: (context, state) {
@@ -177,28 +108,21 @@ class _TorgowyyViewVisitPageState extends State<TorgowyyViewVisitPage> {
           setState(() {
             isSendingPhotos = false;
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Photos uploaded successfully!'),
-              backgroundColor: Colors.green,
-            ),
+          AlertUtils.showSnackBarSuccess(
+            context: context,
+            message: 'Suratlar üstünlikli ugradyldy!',
+            second: 5,
           );
-          // Refresh merchandising data
           _fetchMerchandising();
         } else if (state is ImageUploadFailure) {
           setState(() {
             isSendingPhotos = false;
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.error),
-              backgroundColor: Colors.red,
-            ),
+          AlertUtils.showSnackBarWarning(
+            context: context,
+            message: 'Ýalňyşlyk: ${state.error}',
+            second: 3,
           );
-        } else if (state is ImageUploading) {
-          setState(() {
-            isSendingPhotos = true;
-          });
         }
       },
       child: Scaffold(
@@ -224,12 +148,13 @@ class _TorgowyyViewVisitPageState extends State<TorgowyyViewVisitPage> {
               ? [
                   IconButton(
                     onPressed: () async {
-                      Customer customer =
-                          await getCustomerByCardCode(widget.visit.cardCode);
+                      Customer customer = await getCustomerByCardCode(widget.visit.cardCode);
+                      if (!context.mounted) return;
+
                       List<OrderForServer> orderList = [];
                       orderList.add(order!);
-                      VisitModel visitModel =
-                          widget.visit.copyWith(orderList: orderList);
+                      VisitModel visitModel = widget.visit.copyWith(orderList: orderList);
+
                       navigatorPushMethod(
                         context,
                         ItemListView(
@@ -253,7 +178,7 @@ class _TorgowyyViewVisitPageState extends State<TorgowyyViewVisitPage> {
         ),
         body: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -276,8 +201,7 @@ class _TorgowyyViewVisitPageState extends State<TorgowyyViewVisitPage> {
                         child: Column(
                           children: [
                             ...order!.orderItems.map((item) {
-                              final totalPrice = item.itemCountForOrder *
-                                  double.parse(item.price);
+                              final totalPrice = item.itemCountForOrder * double.parse(item.price);
                               return ListTile(
                                 leading: imagePath != null
                                     ? Image.file(
@@ -373,9 +297,10 @@ class _TorgowyyViewVisitPageState extends State<TorgowyyViewVisitPage> {
                                 Text(
                                   "${calculateTotalSum()} TMT",
                                   style: TextStyle(
-                                      fontSize: 12.0.sp,
-                                      fontWeight: FontWeight.bold),
-                                )
+                                    fontSize: 12.0.sp,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ],
                             ),
                             Divider(),
@@ -392,7 +317,7 @@ class _TorgowyyViewVisitPageState extends State<TorgowyyViewVisitPage> {
                       ),
                     ],
                   ),
-
+      
                 if (merchandising != null && merchandising!.merchandiserImages != null && merchandising!.merchandiserImages!.isNotEmpty) ...[
                   if (getBeforeImages().isNotEmpty)
                     ExpansionTile(
@@ -427,8 +352,7 @@ class _TorgowyyViewVisitPageState extends State<TorgowyyViewVisitPage> {
                                 child: GridView.builder(
                                   shrinkWrap: true,
                                   physics: NeverScrollableScrollPhysics(),
-                                  gridDelegate:
-                                      SliverGridDelegateWithFixedCrossAxisCount(
+                                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                                     crossAxisCount: 3,
                                     crossAxisSpacing: 8.0,
                                     mainAxisSpacing: 8.0,
@@ -453,8 +377,7 @@ class _TorgowyyViewVisitPageState extends State<TorgowyyViewVisitPage> {
                                             ? Image.file(
                                                 File(image.imagePath!),
                                                 fit: BoxFit.cover,
-                                                errorBuilder:
-                                                    (context, error, stackTrace) {
+                                                errorBuilder: (context, error, stackTrace) {
                                                   return Container(
                                                     color: Colors.grey[300],
                                                     child: Icon(
@@ -491,8 +414,7 @@ class _TorgowyyViewVisitPageState extends State<TorgowyyViewVisitPage> {
                                 child: GridView.builder(
                                   shrinkWrap: true,
                                   physics: NeverScrollableScrollPhysics(),
-                                  gridDelegate:
-                                      SliverGridDelegateWithFixedCrossAxisCount(
+                                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                                     crossAxisCount: 3,
                                     crossAxisSpacing: 8.0,
                                     mainAxisSpacing: 8.0,
@@ -542,7 +464,7 @@ class _TorgowyyViewVisitPageState extends State<TorgowyyViewVisitPage> {
                                   },
                                 ),
                               ),
-
+      
                               if (orderStatus != 'dont send')
                                 Padding(
                                   padding: EdgeInsets.only(left: 8.w, right: 8.w, bottom: 8.h),
@@ -556,16 +478,16 @@ class _TorgowyyViewVisitPageState extends State<TorgowyyViewVisitPage> {
                                       ),
                                       icon: isSendingPhotos
                                           ? SizedBox(
-                                              width: 20,
-                                              height: 20,
+                                              width: 20.w,
+                                              height: 20.h,
                                               child: CircularProgressIndicator(
                                                 color: Colors.white,
                                                 strokeWidth: 2,
                                               ),
                                             )
-                                          : Icon(Icons.send, color: Colors.white),
+                                          : Icon(IconlyLight.send, color: Colors.white),
                                       label: Text(
-                                        isSendingPhotos ? 'Sending...' : lang.sendPhotos,
+                                        isSendingPhotos ? 'Ugradylýar...' : lang.sendPhotos,
                                         style: TextStyle(
                                           fontSize: 16.sp,
                                           color: Colors.white,
@@ -590,17 +512,104 @@ class _TorgowyyViewVisitPageState extends State<TorgowyyViewVisitPage> {
     );
   }
 
+  Future<void> _sendPhotos() async {
+    if (merchandising == null || merchandising!.merchandiserImages == null || merchandising!.merchandiserImages!.isEmpty) {
+      AlertUtils.showSnackBarWarning(
+        context: context,
+        message: 'Ugratmak üçin surat ýok',
+        second: 5,
+      );
+      return;
+    }
+
+    setState(() {
+      isSendingPhotos = true;
+    });
+
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? token = prefs.getString('authToken');
+
+      if (token == null && mounted) {
+        AlertUtils.showSnackBarError(
+          context: context,
+          message: 'Ulgamdan çykyp täzeden giriň!',
+          second: 5,
+        );
+        setState(() {
+          isSendingPhotos = false;
+        });
+        return;
+      }
+
+      List<dynamic> data = [];
+      for (var image in merchandising!.merchandiserImages!) {
+        File file = File(image.imagePath!);
+        if (!file.existsSync()) {
+          debugPrint("File not found: ${file.path}");
+          continue;
+        }
+
+        MultipartFile multipartImage = await MultipartFile.fromFile(
+          file.path,
+          filename: image.imageName ?? 'image.jpg',
+        );
+
+        data.add({
+          "MerchandiserImageId": image.merchandiserImageId ?? 0,
+          "ImagePath": image.imagePath,
+          "ImageName": image.imageName,
+          "BeforeAfter": image.beforeAfter,
+          "Merchandiser": null,
+          "EncodedImage": multipartImage,
+        });
+      }
+
+      if (data.isEmpty && mounted) {
+        AlertUtils.showSnackBarWarning(
+          context: context,
+          message: 'Ugratmak üçin dogry surat tapylmady',
+          second: 5,
+        );
+        setState(() {
+          isSendingPhotos = false;
+        });
+        return;
+      }
+
+      if (mounted) {
+        context.read<TraderVisitBloc>().add(
+          UploadMerchImages(
+            images: data,
+            token: token!,
+            visit: widget.visit,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        debugPrint("Error preparing photos: $e");
+
+        AlertUtils.showSnackBarError(
+          context: context,
+          message: 'Suratlar taýýarlananda ýalňyşlyk: $e',
+          second: 5,
+        );
+
+         setState(() {
+          isSendingPhotos = false;
+        });
+      }
+    }
+  }
+
   List<MerchandiserImage> getBeforeImages() {
     if (merchandising?.merchandiserImages == null) return [];
-    return merchandising!.merchandiserImages!
-        .where((img) => img.beforeAfter == 'before')
-        .toList();
+    return merchandising!.merchandiserImages!.where((img) => img.beforeAfter == 'before').toList();
   }
 
   List<MerchandiserImage> getAfterImages() {
     if (merchandising?.merchandiserImages == null) return [];
-    return merchandising!.merchandiserImages!
-        .where((img) => img.beforeAfter == 'after')
-        .toList();
+    return merchandising!.merchandiserImages!.where((img) => img.beforeAfter == 'after').toList();
   }
 }
