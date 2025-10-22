@@ -42,6 +42,8 @@ class _TorgowyyViewVisitPageState extends State<TorgowyyViewVisitPage> {
   String? orderStatus;
   bool isLoadingMerchandising = true;
   bool isSendingPhotos = false;
+  String? withNoImagesValue;
+  bool isLoadingWithNoImages = true;
 
   @override
   void initState() {
@@ -49,6 +51,7 @@ class _TorgowyyViewVisitPageState extends State<TorgowyyViewVisitPage> {
     _loadImagePath();
     _fetchOrder();
     _fetchMerchandising();
+    _fetchWithNoImagesValue();
   }
 
   Future<void> _loadImagePath() async {
@@ -90,6 +93,29 @@ class _TorgowyyViewVisitPageState extends State<TorgowyyViewVisitPage> {
       });
     }
   }
+
+  Future<void> _fetchWithNoImagesValue() async {
+    try {
+      final value = await getWithNoImagesValue(widget.visit.id!);
+      setState(() {
+        withNoImagesValue = value;
+        isLoadingWithNoImages = false;
+      });
+    } catch (e) {
+      debugPrint('Error fetching withNoImages: $e');
+      setState(() {
+        isLoadingWithNoImages = false;
+      });
+    }
+  }
+
+  /* bool _shouldShowMerchandisingTile() {
+    if (withNoImagesValue == null) return true;
+    final value = withNoImagesValue!.trim().toLowerCase();
+    return value.isEmpty || value == 'ok' || value == 'true';
+  } */
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -318,7 +344,10 @@ class _TorgowyyViewVisitPageState extends State<TorgowyyViewVisitPage> {
                     ],
                   ),
       
-                if (merchandising != null && merchandising!.merchandiserImages != null && merchandising!.merchandiserImages!.isNotEmpty) ...[
+                if (_withNoImagesValueIsNotEmpty() && merchandising != null 
+                    && merchandising!.merchandiserImages != null 
+                    && merchandising!.merchandiserImages!.isNotEmpty 
+                   ) ...[
                   if (getBeforeImages().isNotEmpty)
                     ExpansionTile(
                       title: Text(
@@ -465,7 +494,7 @@ class _TorgowyyViewVisitPageState extends State<TorgowyyViewVisitPage> {
                                 ),
                               ),
       
-                              if (orderStatus != 'dont send')
+                              if (_withNoImagesValueIsTrue() && _withNoImagesValueIsOk() && !_withNoImagesValueIsNull())
                                 Padding(
                                   padding: EdgeInsets.only(left: 8.w, right: 8.w, bottom: 8.h),
                                   child: SizedBox(
@@ -487,7 +516,7 @@ class _TorgowyyViewVisitPageState extends State<TorgowyyViewVisitPage> {
                                             )
                                           : Icon(IconlyLight.send, color: Colors.white),
                                       label: Text(
-                                        isSendingPhotos ? 'Ugradylýar...' : lang.sendPhotos,
+                                        isSendingPhotos ? '${lang.sending}...' : lang.sendPhotos,
                                         style: TextStyle(
                                           fontSize: 16.sp,
                                           color: Colors.white,
@@ -601,6 +630,28 @@ class _TorgowyyViewVisitPageState extends State<TorgowyyViewVisitPage> {
         });
       }
     }
+  }
+
+  bool _withNoImagesValueIsNull() {
+    return withNoImagesValue == null;
+  }
+
+  bool _withNoImagesValueIsNotEmpty() {
+    if (withNoImagesValue == null) return true;
+    final value = withNoImagesValue!.trim().toLowerCase();
+    return value.isNotEmpty;
+  }
+
+  bool _withNoImagesValueIsOk() {
+    if (withNoImagesValue == null) return true;
+    final value = withNoImagesValue!.trim().toLowerCase();
+    return value.isNotEmpty;
+  }
+
+  bool _withNoImagesValueIsTrue() {
+    if (withNoImagesValue == null) return true;
+    final value = withNoImagesValue!.trim().toLowerCase();
+    return value.isNotEmpty;
   }
 
   List<MerchandiserImage> getBeforeImages() {
