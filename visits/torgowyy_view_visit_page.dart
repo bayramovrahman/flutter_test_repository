@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:iconly/iconly.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shaylan_agent/logic/cubits/cubit_internet_connection/internet_connection_cubit.dart';
 import 'package:shaylan_agent/models/visit.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shaylan_agent/app/app_fonts.dart';
@@ -557,43 +558,67 @@ class _TorgowyyViewVisitPageState extends State<TorgowyyViewVisitPage> {
     return ValueListenableBuilder<bool>(
       valueListenable: _isSendingPhotosNotifier,
       builder: (context, isSending, _) {
-        return Padding(
-          padding: EdgeInsets.only(left: 8.w, right: 8.w, bottom: 8.h),
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: isSending ? null : _sendPhotos,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue.shade500,
-                disabledBackgroundColor: Colors.grey,
-              ),
-              icon: isSending
-                  ? SizedBox(
-                      width: 20.w,
-                      height: 20.h,
-                      child: const CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : Icon(IconlyLight.send, color: Colors.white),
-              label: Text(
-                isSending ? '${lang.sending}...' : lang.sendPhotos,
-                style: TextStyle(
-                  fontSize: 16.sp,
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: AppFonts.monserratBold,
+        return BlocBuilder<InternetConnectionCubit, InternetConnectionState>(
+          builder: (context, connectionState) {
+            final hasInternet = connectionState is InternetConnectionConnected;
+            return Padding(
+              padding: EdgeInsets.only(left: 8.w, right: 8.w, bottom: 8.h),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: (isSending || !hasInternet) ? null : _sendPhotos,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: hasInternet ? Colors.blue.shade500 : Colors.grey,
+                    disabledBackgroundColor: Colors.grey,
+                  ),
+                  icon: isSending
+                      ? SizedBox(
+                          width: 20.w,
+                          height: 20.h,
+                          child: const CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Icon(
+                          hasInternet ? IconlyLight.send : Icons.wifi_off,
+                          color: Colors.white,
+                        ),
+                  label: Text(
+                    isSending 
+                        ? '${lang.sending}...' 
+                        : hasInternet 
+                            ? lang.sendPhotos 
+                            : lang.noIntConn,
+                    style: TextStyle(
+                      fontSize: 16.sp,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: AppFonts.monserratBold,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );
   }
 
   Future<void> _sendPhotos() async {
+    var lang = AppLocalizations.of(context)!;
+    
+    final connectionState = context.read<InternetConnectionCubit>().state;
+    if (connectionState is !InternetConnectionConnected) {
+      AlertUtils.noInternetConnection(
+        context: context,
+        message: lang.noIntConn,
+        lang: lang,
+      );
+      return;
+    }
+
     final merchandising = _merchandisingNotifier.value;
     
     if (merchandising == null ||
@@ -653,7 +678,6 @@ class _TorgowyyViewVisitPageState extends State<TorgowyyViewVisitPage> {
       if (mounted) {
         AlertUtils.showSnackBarError(
           context: context,
-          // message: 'Suratlar taýýarlananda ýalňyşlyk: $e',
           message: AppLocalizations.of(context)!.unsuccessfully,
           second: 5,
         );
